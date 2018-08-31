@@ -22,13 +22,15 @@ function Set-RegistryValueForAllUsers {
 		New-PSDrive -Name HKU -PSProvider Registry -Root Registry::HKEY_USERS | Out-Null
 		
 		## Change the registry values for the currently logged on user. Each logged on user SID is under HKEY_USERS
-		$LoggedOnSids = (Get-ChildItem HKU: | where { $_.Name -match 'S-\d-\d+-(\d+-){1,14}\d+$' }).PSChildName
+        $LoggedOnSids = $(Get-ChildItem HKU: | Where-Object { $_.Name -match 'S-\d-\d+-(\d+-){1,14}\d+$' } | foreach-object { $_.Name })
 		Write-Verbose "Found $($LoggedOnSids.Count) logged on user SIDs"
 		foreach ($sid in $LoggedOnSids) {
 			Write-Verbose -Message "Loading the user registry hive for the logged on SID $sid"
 			foreach ($instance in $RegistryInstance) {
 				## Create the key path if it doesn't exist
-				New-Item -Path "HKU:\$sid\$($instance.Path | Split-Path -Parent)" -Name ($instance.Path | Split-Path -Leaf) -Force | Out-Null
+				if (!(Test-Path "HKU:\$sid\$($instance.Path)")) {
+                    New-Item -Path "HKU:\$sid\$($instance.Path | Split-Path -Parent)" -Name ($instance.Path | Split-Path -Leaf) -Force | Out-Null
+				}
 				## Create (or modify) the value specified in the param
 				Set-ItemProperty -Path "HKU:\$sid\$($instance.Path)" -Name $instance.Name -Value $instance.Value -Type $instance.Type -Force
 			}
